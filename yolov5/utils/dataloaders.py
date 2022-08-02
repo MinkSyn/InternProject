@@ -929,7 +929,7 @@ def verify_image_label(args):
     try:
         # verify images
         im = Image.open(im_file)
-        im.verify()  # PIL verify
+        im.verify()  # PIL verify print
         shape = exif_size(im)  # image size
         assert (shape[0] > 9) & (shape[1] > 9), f'image size {shape} <10 pixels'
         assert im.format.lower() in IMG_FORMATS, f'invalid image format {im.format}'

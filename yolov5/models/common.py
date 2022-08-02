@@ -305,7 +305,7 @@ class Concat(nn.Module):
 
 class DetectMultiBackend(nn.Module):
     # YOLOv5 MultiBackend class for python inference on various backends
-    def __init__(self, weights='yolov5s.pt', device=torch.device('cpu'), dnn=False, data=None, fp16=False):
+    def __init__(self, weights='', device=torch.device('cpu'), dnn=False, data=None, fp16=False):
         # Usage:
         #   PyTorch:              weights = *.pt
         #   TorchScript:                    *.torchscript
@@ -374,7 +374,7 @@ class DetectMultiBackend(nn.Module):
             executable_network = ie.compile_model(network, device_name="CPU")  # device_name="MYRIAD" for Intel NCS2
             output_layer = next(iter(executable_network.outputs))
             meta = Path(w).with_suffix('.yaml')
-            if meta.exists():
+            if meta.exists():  #print
                 stride, names = self._load_metadata(meta)  # load metadata
         elif engine:  # TensorRT
             LOGGER.info(f'Loading {w} for TensorRT inference...')
@@ -689,7 +689,7 @@ class Detections:
 
     def print(self):
         self.display(pprint=True)  # print results
-        print(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {tuple(self.s)}' % self.t)
+        #print(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {tuple(self.s)}' % self.t)
 
     def show(self, labels=True):
         self.display(show=True, labels=labels)  # show results

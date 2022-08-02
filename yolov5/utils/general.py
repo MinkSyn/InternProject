@@ -3,7 +3,7 @@
 General utils
 """
 
-import contextlib
+import contextlib 
 import glob
 import inspect
 import logging
@@ -38,7 +38,7 @@ from utils.metrics import box_iou, fitness
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLOv5 root directory
-RANK = int(os.getenv('RANK', -1))
+RANK = int(os.getenv('RANK', -1)) #xyxy2xywh
 
 # Settings
 DATASETS_DIR = ROOT.parent / 'datasets'  # YOLOv5 datasets directory
