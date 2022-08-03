@@ -1,6 +1,6 @@
 from yolov5 import detect_image
 import os
-from facenet_pytorch import MTCNN, InceptionResnetV1
+from facenet_pytorch import InceptionResnetV1
 import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
@@ -18,6 +18,7 @@ class YOLOV5():
 		self.source = source # Đường dẫn của hình ảnh dùng để test
 		self.path = path # Đường dẫn hiện tại của file main.py
 
+
 	def take_object(self):
 		# Lấy các thông tin của từng object trong ảnh là center x,y,x,y và id class từ model YOLOV5
 		output = detect_image.run(
@@ -33,6 +34,7 @@ class YOLOV5():
 			project=self.path + '/Detect',  # save results to project/name
 			name='Face_Mask',  # save results to project/name
 			)
+
 		return output
 		
 
@@ -46,6 +48,7 @@ class YOLOV5():
 		crop = im[int(xyxy[0, 1]):int(xyxy[0, 3]), int(xyxy[0, 0]):int(xyxy[0, 2]), ::(1 if BGR else -1)]
 		return crop
 
+
 	def xyxy2xywh(self, x):
 		# Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
 		y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -55,6 +58,7 @@ class YOLOV5():
 		y[:, 3] = x[:, 3] - x[:, 1]  # height
 		return y
 
+
 	def xywh2xyxy(self, x):
 		# Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
 		y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
@@ -63,6 +67,7 @@ class YOLOV5():
 		y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
 		y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
 		return y
+
 
 	def clip_coords(self, boxes, shape):
 		# Clip bounding xyxy bounding boxes to image shape (height, width)
@@ -85,6 +90,7 @@ class FaceNet():
 		saved_data = torch.load(path) # loading data.pt file
 		self.embedding_list = saved_data[0] # getting embedding data
 		self.name_list = saved_data[1] # getting list of names
+
 
 	def parameter_person(self):
 		mtcnn = MTCNN(image_size=240, margin=0, min_face_size=20)
@@ -111,6 +117,7 @@ class FaceNet():
 		data = [embedding_list, name_list]
 		torch.save(data, 'Model_Parameter/FaceNet/Face_data01.pt') # saving Face_data.pt file
 
+
 	def face_match(self, face): # face= image of object face, type là np.array 
 		# Tìm khoảng cách nhỏ nhất với tập dữ liệu và trả về kết quả
 		face = torch.from_numpy(face) #Change to tensor
@@ -136,14 +143,16 @@ class FaceNet():
 
 
 def identify_images(path_dict, path_images_test, path_faceNet, view_result, save_image):
-	''' Liên kết các model lại với nhau để ra kết quả cuối
+	''' Liên kết các model lại với nhau để ra kết quả sau cùng
 		Hiển thị và lưu kết quả
 	'''
 	yolo = YOLOV5(
 		path=path_dict, # Đường dẫn của file main.py
-		source=path_images_test) # Đường dẫn của hình ảnh dùng để test
+		source=path_images_test # Đường dẫn của hình ảnh dùng để test
+		) 
 	fNet = FaceNet(
-		path=path_faceNet) # Đường dẫn file model đã train sẵn để nhận diện khuôn mặt
+		path=path_faceNet # Đường dẫn file model đã train sẵn để nhận diện khuôn mặt
+		) 
 
 	# Detect Object
 	data = yolo.take_object() # Type data: dict
@@ -168,6 +177,7 @@ def identify_images(path_dict, path_images_test, path_faceNet, view_result, save
 		im0 = im.copy()
 
 		n = len(data[path]) # Đếm số đối tượng trên mỗi bức ảnh
+
 		# Nhận diện từng đối tượng trên bức ảnh
 		for i in range(n):
 			img_crop = yolo.detect_box(data[path][i][1], im) # Ảnh khuôn mặt đã được cắt
@@ -198,6 +208,7 @@ def identify_images(path_dict, path_images_test, path_faceNet, view_result, save
 		if save_image:
 			cv2.imwrite(path_dict+'/Detect/'+str(name)+'.jpg', im0)
 			name += 1
+
 
 
 if __name__ == '__main__':
