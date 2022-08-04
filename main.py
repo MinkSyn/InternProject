@@ -1,4 +1,4 @@
-from yolov5 import detect_image
+import detect_image, detect_video
 import os
 from facenet_pytorch import InceptionResnetV1
 import torch
@@ -21,13 +21,13 @@ class YOLOV5():
 
 	def take_object(self):
 		# Lấy các thông tin của từng object trong ảnh là center x,y,x,y và id class từ model YOLOV5
-		output = detect_image.run(
+		output = detect_video.run(
 			weights=self.path + '/Model_Parameter/YOLOv5/weight_train.pt',
-			source=self.path + '/Images_test/' , # file/dir/URL/glob, 0 for webcam
-			data=self.path + '/yolov5/data/facemask.yaml',
+			source= 0, #self.path + '/Images_test/', # file/dir/URL/glob, 0 for webcam
+			data=self.path + '/data/facemask.yaml',
 			imgsz=(640, 640),  # inference size (height, width)
-			conf_thres=0.5,  # confidence threshold
-			iou_thres=0.45,  # NMS IOU threshold
+			conf_thres=0.7,  # confidence threshold
+			iou_thres=0.8,  # NMS IOU threshold
 			max_det=1000,
 			save_crop=False,  # save cropped prediction boxes
 			view_img=False,  # maximum detections per image
