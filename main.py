@@ -1,13 +1,16 @@
-import detect_image, detect_video
 import os
-from facenet_pytorch import InceptionResnetV1
-import torch
-from torchvision import datasets
-from torch.utils.data import DataLoader
 from PIL import Image
 import cv2
 import numpy as np
 
+from facenet_pytorch import InceptionResnetV1
+import torch
+from torchvision import datasets
+from torch.utils.data import DataLoader
+from sklearn.svm import SVC
+from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
+
+import detect_image, detect_video
 
 
 class YOLOV5():
@@ -21,21 +24,37 @@ class YOLOV5():
 
 	def take_object(self):
 		# Lấy các thông tin của từng object trong ảnh là center x,y,x,y và id class từ model YOLOV5
-		output = detect_video.run(
-			weights=self.path + '/Model_Parameter/YOLOv5/weight_train.pt',
-			source= 0, #self.path + '/Images_test/', # file/dir/URL/glob, 0 for webcam
-			data=self.path + '/data/facemask.yaml',
-			imgsz=(640, 640),  # inference size (height, width)
-			conf_thres=0.7,  # confidence threshold
-			iou_thres=0.8,  # NMS IOU threshold
-			max_det=1000,
-			save_crop=False,  # save cropped prediction boxes
-			view_img=False,  # maximum detections per image
-			project=self.path + '/Detect',  # save results to project/name
-			name='Face_Mask',  # save results to project/name
-			)
+		if self.source != 0:
+			output = detect_image.run(
+				weights=self.path + '/Model_Parameter/YOLOv5/weight_train.pt',
+				source= self.path + self.source, # file/dir/URL/glob, 0 for webcam
+				data=self.path + '/data/facemask.yaml',
+				imgsz=(640, 640),  # inference size (height, width)
+				conf_thres=0.25,  # confidence threshold
+				iou_thres=0.45,  # NMS IOU threshold
+				max_det=1000,
+				save_crop=False,  # save cropped prediction boxes
+				view_img=False,  # maximum detections per image
+				project=self.path + '/Detect',  # save results to project/name
+				name='Face_Mask',  # save results to project/name
+				)
 
-		return output
+			return output
+
+		else:
+			detect_video.run(
+				weights=self.path + '/Model_Parameter/YOLOv5/weight_train.pt',
+				source= 0, # file/dir/URL/glob, 0 for webcam
+				data=self.path + '/data/facemask.yaml',
+				imgsz=(640, 640),  # inference size (height, width)
+				conf_thres=0.7,  # confidence threshold
+				iou_thres=0.8,  # NMS IOU threshold
+				max_det=1000,
+				save_crop=False,  # save cropped prediction boxes
+				view_img=False,  # maximum detections per image
+				project=self.path + '/Detect',  # save results to project/name
+				name='Face_Mask',  # save results to project/name
+				)
 		
 
 	def detect_box(self, xyxy, im: np.array, gain=1.02, pad=10, BGR=True):
@@ -86,60 +105,46 @@ class FaceNet():
 	''' FaceNet dùng để train và nhận diện từng khuôn mặt dược tách ra bởi YoloV5
 	'''
 	def __init__(self, path):
-		self.resnet = InceptionResnetV1(pretrained='vggface2', classify=True, num_classes=3).eval() # initializing resnet for face img to embeding conversion
+		self.resnet = InceptionResnetV1(pretrained='vggface2').eval() # initializing resnet for face img to embeding conversion
 		saved_data = torch.load(path) # loading data.pt file
 		self.embedding_list = saved_data[0] # getting embedding data
 		self.name_list = saved_data[1] # getting list of names
 
 
-	def parameter_person(self):
-		mtcnn = MTCNN(image_size=240, margin=0, min_face_size=20)
-
-		dataset = datasets.ImageFolder('Person') # Person folder path 
-		idx_to_class = {i:c for c,i in dataset.class_to_idx.items()} # accessing names of peoples from folder names
-
-		def collate_fn(x):
-			return x[0]
-
-		loader = DataLoader(dataset, collate_fn=collate_fn)
-
-		face_list = [] # list of cropped faces from Person folder
-		name_list = [] # list of names corrospoing to cropped photos
-		embedding_list = [] # list of embeding matrix after conversion from cropped faces to embedding matrix using resnet
-
-		for img, idx in loader:
-			face, prob = mtcnn(img, return_prob=True) 
-			if face is not None and (prob > 0.70): # if face detected and porbability > 90%
-				emb = self.resnet(face.unsqueeze(0)) # passing cropped face into resnet model to get embedding matrix
-				embedding_list.append(emb.detach()) # resulten embedding matrix is stored in a list
-				name_list.append(idx_to_class[idx]) # names are stored in a list
-
-		data = [embedding_list, name_list]
-		torch.save(data, 'Model_Parameter/FaceNet/Face_data01.pt') # saving Face_data.pt file
-
-
 	def face_match(self, face): # face= image of object face, type là np.array 
 		# Tìm khoảng cách nhỏ nhất với tập dữ liệu và trả về kết quả
+		face = cv2.resize(face, (240, 240))
 		face = torch.from_numpy(face) #Change to tensor
 		face = face.unsqueeze(0) #Flatten
 		face = face.permute(0, 3, 1, 2).type(torch.float32) #Change size and type data
 
-		emb = self.resnet(face).detach() # detech is to make required gradient false
+		emb = self.resnet(face).detach().numpy() # detech is to make required gradient false
+		result = self.face_classify(emb)
 
-		dist_list = [] # list of matched distances, minimum distance is used to identify the person
-		for idx, emb_db in enumerate(self.embedding_list):
-			dist = torch.dist(emb, emb_db).item()
-			dist_list.append(dist)
+		return result
+		
 
-		dist_team = sorted(dist_list)
-		d1, d2, d3 = dist_team[0], dist_team[1], dist_team[2] 
+	def face_classify(self, emb, path= 'Model_Parameter/FaceNet/Face_data02.pt', C=[100]):
+		saved_data = torch.load(path) # Load data đã được trích feature 
+		X_train = np.array(saved_data[0]) # Convert to numpy
 
-		#idx_min = dist_list.index(d)
-		return ([self.name_list[dist_list.index(d1)], 
-			self.name_list[dist_list.index(d2)],
-			self.name_list[dist_list.index(d3)]],
-			[d1,d2,d3])
+		y_train = [] # Khởi tạo list Label để train
+		label_list = {}
+		for i in range(len(X_train)):
+			label = saved_data[1][i][0]
+			if label not in label_list:
+				label_list[label] = saved_data[1][i][1]
+			y_train.append(int(label)) # Chuyển label là tên person về số
+		y_train = np.array(y_train) # Convert to numpy
 
+		for c in C:
+			model = SVC(kernel='linear', C=c, class_weight='balanced')
+			clf = OneVsOneClassifier(model) 
+			clf.fit(X_train, y_train)
+
+		result = clf.predict(emb)
+		print(label_list[result[0]])
+		return label_list[result[0]]
 
 
 def identify_images(path_dict, path_images_test, path_faceNet, view_result, save_image):
@@ -165,10 +170,11 @@ def identify_images(path_dict, path_images_test, path_faceNet, view_result, save
 	# Xóa data trong file nơi lưu hình ảnh đã nhận diện
 	if save_image:
 		name = 0
-		os.chdir(path_dict+'/Detect')
+		os.chdir(path_dict + '/Detect')
 		arr = os.listdir()
 		for char in arr:
-			os.remove(char)
+			if char[-4:] == '.jpg':
+				os.remove(char)
 		os.chdir(path_dict)
 
 	# Nhận diện với từng bức ảnh
@@ -181,9 +187,8 @@ def identify_images(path_dict, path_images_test, path_faceNet, view_result, save
 		# Nhận diện từng đối tượng trên bức ảnh
 		for i in range(n):
 			img_crop = yolo.detect_box(data[path][i][1], im) # Ảnh khuôn mặt đã được cắt
-			
 			result = fNet.face_match(img_crop) # Nhận kết quả nhận diện khuôn mặt
-			print('Face matched with: ',result[0], 'With the smallest distance: ',result[1])
+			print(result)
 
 			# Open CV để hiển thị kết quả trên ảnh
 			if view_result or save_image:
@@ -196,7 +201,7 @@ def identify_images(path_dict, path_images_test, path_faceNet, view_result, save
 
 				name_class = data[path][i][0]
 				cv2.putText(im0, name_class, (x, y-10), fontFace=cv2.FONT_HERSHEY_COMPLEX, fontScale=size, color=colors[name_class])
-				cv2.putText(im0, result[0][0],(x,y+h+int(h*0.15)), fontFace=cv2.FONT_HERSHEY_COMPLEX, fontScale=size, color=colors[name_class])
+				cv2.putText(im0, result, (x,y+h+int(h*0.15)), fontFace=cv2.FONT_HERSHEY_COMPLEX, fontScale=size, color=colors[name_class])
 				cv2.rectangle(im0, (x,y), (x+w, y+h), colors[name_class], 5)
 
 		# Demo kết quả
@@ -215,8 +220,8 @@ if __name__ == '__main__':
 	curr_dict = os.getcwd()
 	identify_images(
 		path_dict= curr_dict, # Đường dẫn của file main.py
-		path_images_test=curr_dict + '/Images_test/', # Đường dẫn của hình ảnh dùng để test
-		path_faceNet='Model_Parameter/FaceNet/Face_data01.pt', # Đường dẫn file model đã train sẵn để nhận diện khuôn mặt
+		path_images_test='/Images_test/', # Đường dẫn của hình ảnh dùng để test
+		path_faceNet='Model_Parameter/FaceNet/Face_data02.pt', # Đường dẫn file model đã train sẵn để nhận diện khuôn mặt
 		view_result=False, # Demo kết quả
 		save_image=True # Lưu lại kết quả
 		)
