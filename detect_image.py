@@ -20,7 +20,7 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
                        increment_path, non_max_suppression, print_args, scale_coords, strip_optimizer, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
-from train_identify import data_loader
+from crop_data import data_loader
 
 @torch.no_grad()
 def run(
