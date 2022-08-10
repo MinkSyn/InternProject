@@ -202,7 +202,7 @@ fNet = faceNet()
 yolo = YOLOV5(
 	source='/Images_test/' # Đường dẫn của hình ảnh dùng để test
 	)
-net = torch.load(ROOT + '/Model_Parameter/FaceNet/seamese_net.pth')
+net = torch.load(ROOT + '/Model_Parameter/FaceNet/seamese_net_2.pth')
 
 
 
@@ -238,8 +238,9 @@ def identify_images(view_result, save_image):
 		# Nhận diện từng đối tượng trên bức ảnh
 		for i in range(n):
 			img_crop = yolo.detect_box(data[path][i][1], im) # Ảnh khuôn mặt đã được cắt	
-			result, distance = fNet.face_match(img_crop) # Nhận kết quả nhận diện khuôn mặt
-			print('Object is {}, distance is {}'.format(result, distance))
+			result, distance = fNet.face_match(img_crop, threshold=0.5) # Nhận kết quả nhận diện khuôn mặt
+			print('Path: ', path)
+			print('Object is {}, distance is {}'.format(result, distance if type(distance)== int else distance.detach().numpy()))
 
 			# Open CV để hiển thị kết quả trên ảnh
 			if view_result or save_image:
