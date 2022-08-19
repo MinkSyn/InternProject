@@ -20,7 +20,7 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
                        increment_path, non_max_suppression, print_args, scale_coords, strip_optimizer, xyxy2xywh)
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
-from crop_data import data_loader
+from data_processing import data_loader
 
 @torch.no_grad()
 def run(
@@ -64,7 +64,7 @@ def run(
     model = DetectMultiBackend(weights, device=device, dnn=dnn, data=data, fp16=half)
     stride, names, pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)  # check image size
-    path_data = data_loader() # Path for identify
+    path_data = data_loader('/Person_data') # Path for identify
 
     # Directories
     if save_crop:
